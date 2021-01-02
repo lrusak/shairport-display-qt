@@ -1,0 +1,15 @@
+{
+  "device": "/dev/dri/card0",
+  "hwcursor": false,
+  "pbuffers": false,
+  "outputs": [
+    {
+      "name": "Composite1",
+      "mode": "off"
+    },
+    {
+      "name": "DSI1",
+      "mode": "800x480"
+    }
+  ]
+}
