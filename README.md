@@ -38,6 +38,15 @@ I've included a udev rule that can be used to allow the backlight to be controll
 
 To use the DSI panel with the mainline kernel you need to patch the dtb file for your RPi. I'll outline the instruction to do this and the patch that I use below. Note that I don't use the touchscreen at all. I just use the panel for display only.
 
+## Upstream DTB
+
+Even on Fedora you need to specify the upstream dtb file otherwise it's used as an overlay
+
+add the following to the end of `/boot/efi/config.txt`
+```
+upstream_kernel=1
+```
+
 ## DTB Patching
 
 The mainline kernel requires patching in order to use the 7" DSI touchscreen display (even though the driver for it is included). These instructions are just a guideline as you may have to adjust them for your system. For the example I'm using fedora and an RPi3b+.
@@ -46,7 +55,7 @@ The mainline kernel requires patching in order to use the 7" DSI touchscreen dis
 
 copy the default dtb
 ```
-cp /boot/dtb-5.9.16-200.fc33.aarch64/broadcom/bcm2837-rpi-3-b-plus.dtb ./bcm2837-rpi-3-b-plus.dtb.orig
+cp /boot/dtb-6.3.8-200.fc38.aarch64/broadcom/bcm2837-rpi-3-b-plus.dtb ./bcm2837-rpi-3-b-plus.dtb.orig
 ```
 decompile the dtb binary to a dts file
 ```
@@ -54,93 +63,23 @@ dtc -I dtb -O dts -o bcm2837-rpi-3-b-plus.dts.orig bcm2837-rpi-3-b-plus.dtb.orig
 ```
 make a copy
 ```
-cp bcm2837-rpi-3-b-plus.dtb.orig bcm2837-rpi-3-b-plus.dtb
+cp bcm2837-rpi-3-b-plus.dts.orig bcm2837-rpi-3-b-plus.dts
 ```
-
-apply the following patch:
+apply the patch:
 ```
-patch -p0 -i dts-lcd.patch
+patch -p0 -i patches/0001-add-dsi-panel.patch
 ```
-
-`dts-lcd.patch`
-```
---- bcm2837-rpi-3-b-plus.dts.orig       2021-01-01 16:24:35.621149531 -0800
-+++ bcm2837-rpi-3-b-plus.dts    2021-01-01 16:26:20.740214933 -0800
-@@ -89,7 +89,7 @@
-                        phandle = <0x1b>;
-                };
-
--               gpio@7e200000 {
-+               gpio: gpio@7e200000 {
-                        compatible = "brcm,bcm2835-gpio";
-                        reg = <0x7e200000 0xb4>;
-                        interrupts = <0x02 0x11 0x02 0x12 0x02 0x13 0x02 0x14>;
-@@ -512,7 +512,7 @@
-                        interrupts = <0x02 0x01>;
-                };
-
--               dsi@7e700000 {
-+               dsi1: dsi@7e700000 {
-                        compatible = "brcm,bcm2835-dsi1";
-                        reg = <0x7e700000 0x8c>;
-                        interrupts = <0x02 0x0c>;
-@@ -522,9 +522,37 @@
-                        clocks = <0x06 0x23 0x06 0x30 0x06 0x32>;
-                        clock-names = "phy\0escape\0pixel";
-                        clock-output-names = "dsi1_byte\0dsi1_ddr2\0dsi1_ddr";
--                       status = "disabled";
-                        power-domains = <0x0e 0x12>;
-                        phandle = <0x05>;
-+                       port {
-+                               dsi_out_port: endpoint {
-+                                       remote-endpoint = <&panel_dsi_port>;
-+                               };
-+                       };
-+               };
-+
-+               i2c_dsi: i2c {
-+                       compatible = "i2c-gpio";
-+                       #address-cells = <1>;
-+                       #size-cells = <0>;
-+                       gpios = <&gpio 44 0 &gpio 45 0>;
-+
-+                       lcd@45 {
-+                               compatible = "raspberrypi,7inch-touchscreen-panel";
-+                               reg = <0x45>;
-+
-+                               port {
-+                                       panel_dsi_port: endpoint {
-+                                               remote-endpoint = <&dsi_out_port>;
-+                                       };
-+                               };
-+                       };
-+               };
-+
-+               rpi_backlight {
-+                       compatible = "raspberrypi,rpi-backlight";
-+                       firmware = <&firmware>;
-+                       status = "okay";
-                };
-
-                i2c@7e804000 {
-@@ -700,7 +728,7 @@
-                        phandle = <0x18>;
-                };
-
--               firmware {
-+               firmware: firmware {
-                        compatible = "raspberrypi,bcm2835-firmware\0simple-mfd";
-                        #address-cells = <0x01>;
-                        #size-cells = <0x01>;
-```
-
 compile the dts back to a dtb
 ```
 dtc -I dts -O dtb -o bcm2837-rpi-3-b-plus.dtb bcm2837-rpi-3-b-plus.dts
 ```
 copy the dtb back to the filesystem
 ```
-cp bcm2837-rpi-3-b-plus.dtb /boot/dtb-5.9.16-200.fc33.aarch64/broadcom/bcm2837-rpi-3-b-plus.dtb
+cp bcm2837-rpi-3-b-plus.dtb /boot/dtb-6.3.8-200.fc38.aarch64/broadcom/bcm2837-rpi-3-b-plus.dtb
+```
+also copy the dtb to the efi directory
+```
+cp bcm2837-rpi-3-b-plus.dtb /boot/efi/
 ```
 reboot
 ```
