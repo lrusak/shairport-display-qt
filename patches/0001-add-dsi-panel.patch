@@ -1,0 +1,135 @@
+From 63466853a933dfc8ab0f44fd4441a3d0361e9d75 Mon Sep 17 00:00:00 2001
+From: Lukas Rusak <lorusak@gmail.com>
+Date: Thu, 29 Jun 2023 21:56:42 -0700
+Subject: [PATCH] add dsi panel
+
+Signed-off-by: Lukas Rusak <lorusak@gmail.com>
+---
+ bcm2837-rpi-3-b-plus.dts | 88 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 85 insertions(+), 3 deletions(-)
+
+diff --git a/bcm2837-rpi-3-b-plus.dts b/bcm2837-rpi-3-b-plus.dts
+index 52227e5..c548548 100644
+--- a/bcm2837-rpi-3-b-plus.dts
++++ b/bcm2837-rpi-3-b-plus.dts
+@@ -89,7 +89,7 @@
+ 			phandle = <0x1c>;
+ 		};
+ 
+-		gpio@7e200000 {
++		gpio: gpio@7e200000 {
+ 			compatible = "brcm,bcm2835-gpio";
+ 			reg = <0x7e200000 0xb4>;
+ 			interrupts = <0x02 0x11 0x02 0x12 0x02 0x13 0x02 0x14>;
+@@ -511,7 +511,7 @@
+ 			interrupts = <0x02 0x01>;
+ 		};
+ 
+-		dsi@7e700000 {
++		dsi1: dsi@7e700000 {
+ 			compatible = "brcm,bcm2835-dsi1";
+ 			reg = <0x7e700000 0x8c>;
+ 			interrupts = <0x02 0x0c>;
+@@ -521,9 +521,39 @@
+ 			clocks = <0x07 0x23 0x07 0x30 0x07 0x32>;
+ 			clock-names = "phy\0escape\0pixel";
+ 			clock-output-names = "dsi1_byte\0dsi1_ddr2\0dsi1_ddr";
+-			status = "disabled";
++			status = "okay";
+ 			power-domains = <0x0f 0x12>;
+ 			phandle = <0x05>;
++
++			port {
++				dsi_out: endpoint {
++					remote-endpoint = <&bridge_in>;
++				};
++			};
++
++			bridge@0 {
++				reg = <0>;
++				compatible = "toshiba,tc358762";
++				vddc-supply = <&reg_bridge>;
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++						bridge_in: endpoint {
++							remote-endpoint = <&dsi_out>;
++						};
++					};
++
++					port@1 {
++						reg = <1>;
++						bridge_out: endpoint {
++							remote-endpoint = <&panel_in>;
++						};
++					};
++				};
++			};
+ 		};
+ 
+ 		i2c@7e804000 {
+@@ -757,6 +787,58 @@
+ 		};
+ 	};
+ 
++	panel_disp1: panel-disp {
++		compatible = "raspberrypi,7inch-dsi", "panel-dpi";
++		backlight = <&reg_display>;
++		power-supply = <&reg_display>;
++
++		width-mm = <154>;
++		height-mm = <86>;
++		bus-format = <0x100a>;
++
++		timing: panel-timing {
++			clock-frequency = <25979400>;
++			hactive = <800>;
++			hfront-porch = <2>;
++			hsync-len = <2>;
++			hback-porch = <46>;
++			hsync-active = <0>;
++			vactive = <480>;
++			vfront-porch = <7>;
++			vsync-len = <2>;
++			vback-porch = <21>;
++			vsync-active = <0>;
++		};
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&bridge_out>;
++			};
++		};
++	};
++
++	reg_bridge: reg_bridge {
++		compatible = "regulator-fixed";
++		regulator-name = "bridge_reg";
++		gpio = <&reg_display 0 0>;
++		vin-supply = <&reg_display>;
++		enable-active-high;
++	};
++
++	i2c_dsi: i2c {
++		compatible = "i2c-gpio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		gpios = <&gpio 44 0 &gpio 45 0>;
++
++		reg_display: reg_display@45 {
++			compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
++			reg = <0x45>;
++			gpio-controller;
++			#gpio-cells = <2>;
++		};
++	};
++
+ 	phy {
+ 		compatible = "usb-nop-xceiv";
+ 		#phy-cells = <0x00>;
+-- 
+2.41.0
+
